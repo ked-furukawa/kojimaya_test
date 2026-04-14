@@ -1,14 +1,17 @@
 {
-  "name": "kolimaya_poc",
+  "name": "kojimaya-poc",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev:tablet": "npm run dev -w @kojimaya/tablet",
+    "build:tablet": "npm run build -w @kojimaya/tablet",
+    "typecheck:amplify": "tsc --noEmit -p amplify/tsconfig.json",
+    "sandbox": "ampx sandbox"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "devDependencies": {
     "@aws-amplify/backend": "^1.22.0",
     "@aws-amplify/backend-cli": "^1.8.2",
