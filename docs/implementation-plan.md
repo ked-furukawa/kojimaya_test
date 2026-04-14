@@ -17,18 +17,18 @@
 
 ## 1. マイルストーン
 
-| M | 名称 | ゴール | 主要成果物 |
-|---|------|--------|------------|
-| **M0** | OCR精度検証 | Bedrock Vision で実機表示部の数値を安定して読めることを確認 | 検証レポート |
-| **M1** | バックエンド基盤 | Amplify Data/Storage/Function が立ち上がる | `amplify/` 更新 |
-| **M2** | OCR Lambda | S3キーを渡すと数値JSONが返る | `ocr-handler` |
-| **M3** | フロント雛形 | ログインしてホーム画面が出る | `web/` 雛形 |
-| **M4** | 計量画面MVP | 撮影→OCR→結果表示→保存ができる | `Measure.tsx` |
-| **M5** | 容器マスタ | 容器の登録・更新・既定設定 | `Containers.tsx` |
-| **M6** | 履歴閲覧 | 過去の計量を一覧/詳細で見られる | `History.tsx` |
-| **M7** | 現場検証 | タブレット実機でPilot運用 | フィードバック |
+| M | 名称 | 状態 | ゴール | 主要成果物 |
+|---|------|------|--------|------------|
+| **M0** | OCR精度検証 | ⏸ 画像収集待ち | Bedrock Vision で実機表示部の数値を安定して読めることを確認 | 検証レポート |
+| **M1** | バックエンド基盤 | ✅ 完了 | Amplify Data/Storage/Function が立ち上がる | `amplify/` 更新 |
+| **M2** | OCR Lambda | ✅ 完了 | S3キーを渡すと数値JSONが返る | `ocr-handler` |
+| **M3** | フロント雛形 | 🔜 次 | ログインしてホーム画面が出る | `apps/tablet` モノレポ雛形 |
+| **M4** | 計量画面MVP | ⬜ | 撮影→OCR→結果表示→保存ができる | `apps/tablet/src/pages/Measure.tsx` |
+| **M5** | 容器マスタ | ⬜ | 容器の登録・更新・既定設定 | `apps/tablet/src/pages/Containers.tsx` |
+| **M6** | 履歴閲覧 | ⬜ | 過去の計量を一覧/詳細で見られる | `apps/tablet/src/pages/History.tsx` |
+| **M7** | 現場検証 | ⬜ | タブレット実機でPilot運用 | フィードバック |
 
-各 M は前の M に依存。M0 だけは特殊で、コード書き始める前のゲート。
+各 M は前の M に依存。M0 はコード実装と並行可能(画像が揃い次第いつでも検証可)。
 
 ---
 
@@ -99,26 +99,41 @@
 
 ---
 
-### M3. フロント雛形(web/)
+### M3. フロント雛形(モノレポ + apps/tablet)
+
+> 注: 配置は npm workspaces による `apps/` + `packages/` 構成を採用([design.md §5](./design.md#5-ディレクトリ構成案npm-workspaces-によるモノレポ))。
 
 **作業項目**:
-1. `web/` 配下に Vite + React + TypeScript プロジェクト作成
-2. 依存追加: `aws-amplify`, `@aws-amplify/ui-react`, `react-router`, Tailwind
-3. `Amplify.configure(amplify_outputs.json)` の初期化
-4. ルーティング雛形:`/`(Home)`/measure` `/history` `/containers`
-5. Cognito ログイン画面(Amplify UI Authenticator)を組み込み
-6. ホーム画面に3つの大ボタン
-7. PWAマニフェスト・アイコン仮置き
-8. `npm run dev` で動作確認
+1. **モノレポ足場の整備**
+   - ルート `package.json` に `"private": true` と `"workspaces": ["apps/*", "packages/*"]` を追加
+   - `tsconfig.base.json` を作成(共通コンパイラオプション)
+   - 既存の amplify 依存はルート `package.json` のままで OK
+2. **`packages/shared` の足場作成**(中身は空でOK)
+   - `package.json`(name: `@kojimaya/shared`)
+   - `src/index.ts`(空 export)
+   - `tsconfig.json`(`tsconfig.base.json` を extends)
+3. **`apps/tablet` 作成**
+   - Vite + React + TypeScript で初期化
+   - `package.json` の name を `@kojimaya/tablet` に
+   - 依存追加: `aws-amplify`, `@aws-amplify/ui-react`, `react-router`, Tailwind
+   - `vite.config.ts` の base 設定(必要なら)
+4. **Amplify 接続**
+   - ルートの `amplify_outputs.json` を `apps/tablet/src/lib/amplify.ts` から相対参照
+   - `Amplify.configure(outputs)` を初期化エントリで呼ぶ
+5. **ルーティング雛形**:`/`(Home)`/measure` `/history` `/containers`
+6. **Cognito ログイン画面**(Amplify UI Authenticator)を組み込み
+7. **ホーム画面**に3つの大ボタン(計量する/履歴/容器マスタ)
+8. **PWAマニフェスト・アイコン仮置き**
+9. **動作確認**:ルートから `npm run dev:tablet` で起動
 
-**完了条件**: ログインしてホーム画面が表示される
+**完了条件**: ログインしてホーム画面が表示される + ルートから workspaces 経由でビルド/起動できる
 
 ---
 
 ### M4. 計量画面 MVP(最重要)
 
 **作業項目**:
-1. `Measure.tsx` 作成
+1. `apps/tablet/src/pages/Measure.tsx` 作成
 2. カメラ起動: HTML5 `<input type="file" accept="image/*" capture="environment">` から始める(まずシンプル)
 3. プレビュー表示
 4. 「OCR実行」ボタン押下で:
@@ -144,7 +159,7 @@
 ### M5. 容器マスタ画面
 
 **作業項目**:
-1. `Containers.tsx` 作成
+1. `apps/tablet/src/pages/Containers.tsx` 作成
 2. 一覧表示(名前 / 風袋重量 / 既定 / 有効)
 3. 新規追加フォーム(名前・風袋重量・メモ)
 4. 編集フォーム
@@ -160,7 +175,7 @@
 ### M6. 履歴閲覧
 
 **作業項目**:
-1. `History.tsx` 一覧
+1. `apps/tablet/src/pages/History.tsx` 一覧
    - 日付・操作者でフィルタ
    - 画像サムネイル(S3署名URL)
 2. 詳細モーダル/ページ

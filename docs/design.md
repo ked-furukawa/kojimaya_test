@@ -113,15 +113,23 @@
 
 ### OCR Lambda の入出力(契約)
 
-**Input**:
-```json
-{
-  "s3Key": "uploads/2026-04-14/abc123.jpg",
-  "hint": { "expectedUnit": "kg", "minValue": 0, "maxValue": 150 }
+AppSync の Custom Mutation `invokeOcr(s3Key, bucket)` 経由で呼び出す。
+
+**GraphQL**:
+```graphql
+mutation InvokeOcr($s3Key: String!, $bucket: String!) {
+  invokeOcr(s3Key: $s3Key, bucket: $bucket) {
+    value
+    unit
+    confidence
+    stable
+    rawText
+    warnings
+  }
 }
 ```
 
-**Output**:
+**Output 例**:
 ```json
 {
   "value": 42.10,
@@ -133,15 +141,21 @@
 }
 ```
 
-### Bedrock へのプロンプト方針(抜粋)
+### Bedrock へのプロンプト方針
 
-- モデル: `claude-sonnet-4-6`(Vision対応・コストと精度のバランス)
+- モデル: `BEDROCK_MODEL_ID` 環境変数で指定(既定: `apac.anthropic.claude-sonnet-4-5-20250929-v1:0`)。実環境のリージョン・有効化状況に応じて差し替え。
 - システムプロンプト:
-  - 「画像は工業用デジタル計量機(ISHIDA ITB)の7セグメント液晶表示。表示されている数値と単位を JSON で返す」
+  - 「画像は工業用デジタル計量機(ISHIDA ITB)の7セグメントLED表示」
   - 「単位は kg のみ。小数点を正確に読む。安定マークの有無も判定」
   - 「読み取れない場合は value=null, warnings に理由を入れる」
-- レスポンスは **Tool use で構造化** し、JSONパース失敗を防ぐ
+- レスポンスは **Tool use(`extract_weight`)で構造化**:`tool_choice` で必ずツール呼び出しを強制し JSON パース失敗を排除
 - 信頼度が低い / 安定マーク無し の場合は PWA 側で **再撮影を促す**
+
+### IAM・権限設計
+
+- Lambda → Bedrock: `bedrock:InvokeModel` を `anthropic.*` foundation model + inference profile に限定
+- Lambda → S3: Storage の `allow.resource(ocrHandler).to(['read'])` で `photos/*` のみ読取可
+- フロント → AppSync: Cognito ユーザープール認証(`userPool` モード)
 
 ---
 
@@ -226,38 +240,89 @@ AuditLog {
 
 ---
 
-## 5. ディレクトリ構成案
+## 5. ディレクトリ構成案(npm workspaces によるモノレポ)
+
+将来 **管理者向けWeb管理画面** や **計算ロジックの共有** を見越し、`apps/` + `packages/` のモノレポ構成を採用する。第一弾では `apps/tablet`(作業者向けPWA)のみを実装する。
 
 ```
 c:/kojimaya_poc/
-├── amplify/
+├── amplify/                          # バックエンド(全アプリで共有)
 │   ├── auth/resource.ts
-│   ├── data/resource.ts        # ← Container, Measurement, AuditLog 追加
-│   ├── storage/resource.ts     # ← 新規:S3バケット定義
+│   ├── data/resource.ts              # Container, Measurement, AuditLog, invokeOcr
+│   ├── storage/resource.ts           # S3バケット定義
 │   ├── functions/
-│   │   └── ocr-handler/        # ← 新規:Bedrock呼び出し Lambda
+│   │   └── ocr-handler/              # Bedrock呼び出し Lambda
 │   │       ├── handler.ts
 │   │       └── resource.ts
 │   └── backend.ts
-├── web/                         # ← 新規:PWAフロントエンド
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Measure.tsx
-│   │   │   ├── History.tsx
-│   │   │   └── Containers.tsx
-│   │   ├── components/
-│   │   ├── lib/
-│   │   │   ├── ocr.ts          # invokeOcr クライアント
-│   │   │   └── storage.ts      # S3アップロード
-│   │   └── App.tsx
-│   ├── index.html
-│   ├── vite.config.ts
-│   └── package.json
-└── docs/
-    ├── requirements.md
-    ├── questions.md
-    └── design.md (this file)
+│
+├── apps/
+│   └── tablet/                       # 作業者向けPWA(現場タブレット用)
+│       ├── src/
+│       │   ├── pages/
+│       │   │   ├── Measure.tsx       # 計量画面(最重要)
+│       │   │   ├── History.tsx       # 履歴
+│       │   │   └── Containers.tsx    # 容器マスタ
+│       │   ├── components/
+│       │   ├── lib/
+│       │   │   ├── amplify.ts        # Amplify.configure()
+│       │   │   ├── ocr.ts            # invokeOcr クライアント
+│       │   │   └── storage.ts        # S3アップロード
+│       │   ├── App.tsx
+│       │   └── main.tsx
+│       ├── public/
+│       ├── index.html
+│       ├── vite.config.ts
+│       ├── tsconfig.json
+│       └── package.json
+│
+├── packages/                         # 共通コード置き場
+│   └── shared/                       # (第一弾では空でOK、足場だけ用意)
+│       ├── src/
+│       │   ├── types.ts              # 将来:共通型
+│       │   └── calc/                 # 将来:指示重量計算(乾麺/生麺)
+│       ├── package.json
+│       └── tsconfig.json
+│
+├── docs/
+│   ├── requirements.md
+│   ├── questions.md
+│   ├── design.md                     # this file
+│   └── implementation-plan.md
+│
+├── amplify_outputs.json              # `npx ampx sandbox` で生成
+├── package.json                      # ルート(workspaces 定義 + amplify 依存)
+├── tsconfig.base.json                # 共通 TS 設定
+└── tsconfig.json                     # workspaces 参照
 ```
+
+### 配置上の判断
+
+- **`amplify/` はルート直下に維持**:Amplify Gen2 の規約上 `npx ampx sandbox` がルートの `amplify/` を探すため、移動しない。
+- **`apps/tablet`**:作業者向けPWA。現場利用の最重要アプリ。
+- **`apps/admin` は将来**:管理者向けPC画面(マスタ管理・履歴ダッシュボード)が必要になった時点で追加する。
+- **`packages/shared`**:第四弾の **指示重量計算ロジック(乾麺/生麺)** を置く想定。フロント側で即時計算 / Lambda側で検算、両方で再利用するため共通化する価値が高い。第一弾では足場のみ作成。
+- **npm workspaces** を使い、依存解決と TS の Project References をルートで一元管理する。
+
+### workspaces 定義(ルート package.json 抜粋)
+
+```json
+{
+  "name": "kojimaya-poc",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:tablet": "npm run dev -w @kojimaya/tablet",
+    "build:tablet": "npm run build -w @kojimaya/tablet",
+    "sandbox": "ampx sandbox"
+  }
+}
+```
+
+各サブパッケージは `@kojimaya/tablet` `@kojimaya/shared` のようにスコープ付きで命名する。
 
 ---
 
@@ -266,8 +331,9 @@ c:/kojimaya_poc/
 | 項目 | 採用 | 理由 |
 |------|------|------|
 | バックエンド | AWS Amplify Gen2 | 既に雛形あり、Auth/Data/Storage/Function が一括管理可能 |
-| OCRエンジン | Bedrock Claude Sonnet 4.6 (Vision) | 7セグLEDは通常OCR(Tesseract/Textract)が苦手。VLMが現状最も精度が出やすい。Tool use で構造化レスポンス可 |
+| OCRエンジン | Bedrock Claude Sonnet (Vision) | 7セグLEDは通常OCR(Tesseract/Textract)が苦手。VLMが現状最も精度が出やすい。Tool use で構造化レスポンス可 |
 | フロントエンド | React + Vite + PWA | iOS/Android両対応、配布が容易。ネイティブアプリ化は将来検討 |
+| プロジェクト構成 | npm workspaces モノレポ(`apps/` + `packages/`) | 将来の管理者用Web追加・計算ロジック共通化に備える |
 | 状態管理 | Amplify Data (AppSync) のクライアントを直接利用 | 余計な抽象を入れない |
 | スタイル | (未定 → Tailwind 想定) | 現場向けの大きいUI を素早く作れる |
 
