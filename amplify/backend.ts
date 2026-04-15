@@ -12,6 +12,20 @@ const backend = defineBackend({
   ocrHandler,
 });
 
+const { cfnUserPool } = backend.auth.resources.cfnResources;
+cfnUserPool.usernameAttributes = [];
+cfnUserPool.aliasAttributes = undefined;
+cfnUserPool.schema = [
+  {
+    name: 'email',
+    attributeDataType: 'String',
+    mutable: true,
+    required: false,
+  },
+];
+cfnUserPool.autoVerifiedAttributes = [];
+cfnUserPool.userAttributeUpdateSettings = undefined;
+
 backend.ocrHandler.resources.lambda.addToRolePolicy(
   new PolicyStatement({
     effect: Effect.ALLOW,
