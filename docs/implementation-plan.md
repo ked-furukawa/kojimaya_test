@@ -1,6 +1,6 @@
 # 実装計画書
 
-最終更新: 2026-04-14
+最終更新: 2026-04-15
 スコープ: OCR先行フェーズ(第一弾)の実装手順
 関連: [requirements.md](./requirements.md) / [design.md](./design.md) / [questions.md](./questions.md)
 
@@ -22,10 +22,10 @@
 | **M0** | OCR精度検証 | ⏸ 画像収集待ち | Bedrock Vision で実機表示部の数値を安定して読めることを確認 | 検証レポート |
 | **M1** | バックエンド基盤 | ✅ 完了 | Amplify Data/Storage/Function が立ち上がる | `amplify/` 更新 |
 | **M2** | OCR Lambda | ✅ 完了 | S3キーを渡すと数値JSONが返る | `ocr-handler` |
-| **M3** | フロント雛形 | 🔜 次 | ログインしてホーム画面が出る | `apps/tablet` モノレポ雛形 |
-| **M4** | 計量画面MVP | ⬜ | 撮影→OCR→結果表示→保存ができる | `apps/tablet/src/pages/Measure.tsx` |
-| **M5** | 容器マスタ | ⬜ | 容器の登録・更新・既定設定 | `apps/tablet/src/pages/Containers.tsx` |
-| **M6** | 履歴閲覧 | ⬜ | 過去の計量を一覧/詳細で見られる | `apps/tablet/src/pages/History.tsx` |
+| **M3** | フロント雛形 | ✅ 完了 | ログインしてホーム画面が出る | `apps/tablet` モノレポ雛形 |
+| **M4** | 計量画面MVP | ✅ 完了 | 撮影→OCR→結果表示→保存ができる | `apps/tablet/src/pages/Measure.tsx` |
+| **M5** | 容器マスタ | ✅ 完了 | 容器の登録・更新・既定設定 | `apps/tablet/src/pages/Containers.tsx` |
+| **M6** | 履歴閲覧 | 🔜 次 | 過去の計量を一覧/詳細で見られる | `apps/tablet/src/pages/History.tsx` |
 | **M7** | 現場検証 | ⬜ | タブレット実機でPilot運用 | フィードバック |
 
 各 M は前の M に依存。M0 はコード実装と並行可能(画像が揃い次第いつでも検証可)。

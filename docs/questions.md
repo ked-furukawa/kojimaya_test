@@ -1,6 +1,6 @@
 # 未確定事項・質問リスト
 
-最終更新: 2026-04-14
+最終更新: 2026-04-15
 ステータス: 🔴 未確認 / 🟡 確認中 / 🟢 確定
 
 このファイルは、現場ヒアリング・経営層への確認・追加情報待ちの項目を集約するもの。
@@ -87,6 +87,26 @@
 - 具体的な **容器名 / 風袋重量(kg)** の実測値が必要
 - 容器が破損・更新されたときの運用(誰が値を直すか)
 
+### D-2. 「既定にする」操作のアトミック性 🟡(MVP 許容・要判断)
+- 現状([Containers.tsx](../apps/tablet/src/pages/Containers.tsx) `handleSetDefault`):
+  クライアント側から複数の `Container.update` を順次発行し、旧既定を false に落としてから
+  対象を true にしている。各 update は独立した AppSync mutation(= 別々の DynamoDB UpdateItem)。
+- 起こり得る不整合:
+  - 途中でネットワーク断 → 既定 0 件 or 既定 2 件
+  - 別ユーザーが同時に別の容器を既定にする → 競合で最終状態が予期できない
+- 実害:
+  - 既定 0 件: [Measure.tsx](../apps/tablet/src/pages/Measure.tsx) が風袋を自動取得できず、
+    `containerTareSnapshot=null` のまま保存され得る
+  - 既定 2 件: `list.find(isDefault)` が最初に見つかったものを採用するため、挙動が不安定に見える
+- 容器が **1種類運用**(D-1 で確定)の間は実害ほぼなし。複数容器を扱う段階で見直し必須。
+- **本来の解**: Amplify Gen2 の Custom Mutation(`a.handler.function(...)`)として
+  `setDefaultContainer(containerId)` を追加し、Lambda 内で DynamoDB
+  `TransactWriteItems` により「旧既定 false + 新既定 true」を 1 トランザクションで処理する。
+- **暫定解**(中間案): update 後に再 list して `isDefault=true` が 2 件以上なら自動補正、
+  0 件ならリロードを促す。根本対処ではないが改修コスト最小。
+- **判断すべきこと**: 複数容器運用に切り替わるタイミング、および現場で「既定が変になった」
+  事象が観測されたら即時 Lambda 版に差し替えるかどうか
+
 ---
 
 ## E. データ・コンプライアンス
@@ -99,6 +119,30 @@
 ### E-2. 監査・出力要件 🔴
 - 保健所・取引先監査で求められるレポート形式はあるか
 - 既存の帳票テンプレート(Excel等)があるか
+
+### E-3. AuditLog の認可とタンパー耐性 🟡(MVP 許容・要判断)
+- 現状([amplify/data/resource.ts](../amplify/data/resource.ts) の `AuditLog` モデル):
+  `allow.authenticated()` のみ指定しており、**ログイン済みユーザー全員が
+  create / read / update / delete 全てを実行可能**。
+- クライアント([Containers.tsx](../apps/tablet/src/pages/Containers.tsx) の `writeAuditLog`)から
+  直接 `AuditLog.create()` を呼んでいるため、`actor` フィールドも呼び出し側で決めている
+  (= 偽装可能)。
+- 問題点:
+  - **改竄可能**: 過去のログの `before/after`/`actor` を書き換えられる
+  - **削除可能**: 証跡そのものを消せる
+  - **他人の操作履歴も全員が閲覧可能**
+- 必要な保護レベル次第で、以下のいずれかを選ぶ:
+
+  | 段階 | 設定方針 | 工数 | 得られる保護 |
+  |------|----------|------|--------------|
+  | 現状 (MVP) | `allow.authenticated()` | 0 | なし(性善説) |
+  | **中段階** | `allow.authenticated().to(['create', 'read'])` のみ許可し update/delete を禁止 | 小(数行) | 改竄・削除を防止。`actor` 偽装は依然可能だが append-only になる |
+  | **理想** | 読み取りは `allow.group('Admin').to(['read'])`、書き込みは専用 Lambda 経由(`allow.resource(fn).to(['create'])`)。Lambda 内で Cognito identity から `actor` を取得 | 中 | 完全な監査証跡(書き換え・削除不可、`actor` 偽装不可) |
+
+- **判断すべきこと**:
+  - 小島屋さんの業務で監査証跡にどの程度の強度を求めるか(保健所監査等に使う可能性)
+  - 中段階だけでも今のうちに入れておくか(実質数行の変更で改竄耐性は得られる)
+  - 理想形に上げるタイミング(管理者ロール運用を始めるフェーズと揃える)
 
 ---
 

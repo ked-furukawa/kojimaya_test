@@ -6,12 +6,15 @@ import './index.css';
 import { App } from './App';
 import { configureAmplify } from './lib/amplify';
 
-void configureAmplify();
+async function bootstrap() {
+  await configureAmplify();
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </React.StrictMode>,
+  );
+}
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>,
-);
+void bootstrap();
