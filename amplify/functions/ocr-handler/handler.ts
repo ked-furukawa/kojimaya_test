@@ -88,19 +88,11 @@ async function fetchImageAsBase64(
     throw new Error(`S3 object body is empty: ${bucket}/${key}`);
   }
   const bytes = await obj.Body.transformToByteArray();
-  const mediaType = obj.ContentType ?? guessMediaType(key);
+  const mediaType = obj.ContentType ?? 'image/jpeg';
   return {
     base64: Buffer.from(bytes).toString('base64'),
     mediaType,
   };
-}
-
-function guessMediaType(key: string): string {
-  const lower = key.toLowerCase();
-  if (lower.endsWith('.png')) return 'image/png';
-  if (lower.endsWith('.webp')) return 'image/webp';
-  if (lower.endsWith('.heic')) return 'image/heic';
-  return 'image/jpeg';
 }
 
 export const handler: Schema['invokeOcr']['functionHandler'] = async (
