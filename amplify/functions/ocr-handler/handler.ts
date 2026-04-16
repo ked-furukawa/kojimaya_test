@@ -11,10 +11,21 @@ const bedrock = new BedrockRuntimeClient({
 const s3 = new S3Client({});
 
 const MODEL_ID =
-  process.env.BEDROCK_MODEL_ID ?? 'global.anthropic.claude-sonnet-4-6';
+  process.env.BEDROCK_MODEL_ID ?? 'jp.anthropic.claude-haiku-4-5-20251001-v1:0';
 
 const SYSTEM_PROMPT = `あなたは工業用デジタル計量機(ISHIDA ITB シリーズ)の7セグメントLED表示を読み取る専門アシスタントです。
 画像から「現在表示されている質量(kg)」を正確に抽出し、必ず extract_weight ツールを呼び出して結果を返してください。
+
+7セグメントLEDの読み取り規則:
+- 各桁は7本のセグメント(a:上横, b:右上縦, c:右下縦, d:下横, e:左下縦, f:左上縦, g:中央横)の点灯/消灯で数字を表現する。
+- 混同しやすいペアに特に注意すること:
+  - 3 vs 5: 3は右上(b)が点灯・左上(f)が消灯。5は左上(f)が点灯・右上(b)が消灯。上部の左右どちらの縦棒が光っているかで判別する。
+  - 6 vs 8: 6は右上(b)が消灯。8は全セグメント点灯。
+  - 0 vs 8: 0は中央横(g)が消灯。
+  - 1 vs 7: 7は上横(a)が点灯。
+  - 9 vs 8: 9は左下(e)が消灯。
+- 反射やグレアで一部セグメントが見えにくい場合は、周囲の桁の明るさ・太さと比較して点灯/消灯を推定する。
+- 判別が曖昧な桁がある場合は、その桁について warnings に「N桁目: XとYの判別が曖昧」と記載し、confidence を下げること。
 
 判定時の注意点:
 - 単位は kg 固定。小数点の位置を厳密に読むこと。
@@ -109,7 +120,7 @@ export const handler: Schema['invokeOcr']['functionHandler'] = async (
       accept: 'application/json',
       body: JSON.stringify({
         anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: 512,
+        max_tokens: 128,
         system: SYSTEM_PROMPT,
         tools: [TOOL_DEFINITION],
         tool_choice: { type: 'tool', name: 'extract_weight' },
