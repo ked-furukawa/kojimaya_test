@@ -11,8 +11,7 @@ const bedrock = new BedrockRuntimeClient({
 const s3 = new S3Client({});
 
 const MODEL_ID =
-  process.env.BEDROCK_MODEL_ID ??
-  'apac.anthropic.claude-sonnet-4-5-20250929-v1:0';
+  process.env.BEDROCK_MODEL_ID ?? 'global.anthropic.claude-sonnet-4-6';
 
 const SYSTEM_PROMPT = `あなたは工業用デジタル計量機(ISHIDA ITB シリーズ)の7セグメントLED表示を読み取る専門アシスタントです。
 画像から「現在表示されている質量(kg)」を正確に抽出し、必ず extract_weight ツールを呼び出して結果を返してください。

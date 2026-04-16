@@ -143,7 +143,7 @@ mutation InvokeOcr($s3Key: String!, $bucket: String!) {
 
 ### Bedrock へのプロンプト方針
 
-- モデル: `BEDROCK_MODEL_ID` 環境変数で指定(既定: `apac.anthropic.claude-sonnet-4-5-20250929-v1:0`)。実環境のリージョン・有効化状況に応じて差し替え。
+- モデル: `BEDROCK_MODEL_ID` 環境変数で指定(既定: `global.anthropic.claude-sonnet-4-6`)。新世代 Claude はオンデマンド呼び出しがサポートされないため、必ずインファレンスプロファイル(`global.*` / `jp.*` 等)経由で呼ぶ必要がある。Sonnet 4.6 は現状 `global.*` のみ存在するため、データを国内で完結させたい場合は 4.5 の `jp.*` を選ぶ選択肢がある。
 - システムプロンプト:
   - 「画像は工業用デジタル計量機(ISHIDA ITB)の7セグメントLED表示」
   - 「単位は kg のみ。小数点を正確に読む。安定マークの有無も判定」

@@ -21,3 +21,8 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# OCR 検証用サンプル画像(社外秘想定)
+samples/**
+!samples/README.md
+!samples/**/README.md

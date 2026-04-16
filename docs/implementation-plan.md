@@ -19,7 +19,9 @@
 
 | M | 名称 | 状態 | ゴール | 主要成果物 |
 |---|------|------|--------|------------|
-| **M0** | OCR精度検証 | ⏸ 画像収集待ち | Bedrock Vision で実機表示部の数値を安定して読めることを確認 | 検証レポート |
+| **M0.1** | OCR検証基盤整備 | ✅ 完了 | 画面経由の検証手順とナレッジ蓄積先が揃う | `docs/ocr-validation.md` |
+| **M0.2** | OCR初期検証(3〜4枚) | 🔜 次 | 画面経由で疎通、プロンプト初期調整 | 実験ログ Exp#1〜 |
+| **M0.3** | OCR本検証(10〜20枚) | ⬜ 画像収集待ち | 正解率 95% 判定 | 検証結論 |
 | **M1** | バックエンド基盤 | ✅ 完了 | Amplify Data/Storage/Function が立ち上がる | `amplify/` 更新 |
 | **M2** | OCR Lambda | ✅ 完了 | S3キーを渡すと数値JSONが返る | `ocr-handler` |
 | **M3** | フロント雛形 | ✅ 完了 | ログインしてホーム画面が出る | `apps/tablet` モノレポ雛形 |
@@ -34,27 +36,69 @@
 
 ## 2. ステップ詳細
 
-### M0. OCR精度検証(コード前)
+### M0. OCR精度検証
 
-**目的**: Bedrock Vision が ISHIDA ITB の7セグメント表示を読めるかを早期に確認する。読めなければ前処理追加 or 別案を検討。
+Bedrock Vision が ISHIDA ITB の7セグメント表示を読めるかを確認するフェーズ。
+検証計画と蓄積先は [ocr-validation.md](./ocr-validation.md) に分離したため、ここではマイルストーン構造のみ記載。
+
+検証は **画面経由(E2E)に一本化** します。プロンプトやモデルを変える場合は
+[amplify/functions/ocr-handler/handler.ts](../amplify/functions/ocr-handler/handler.ts) を編集 → `npx ampx sandbox` で反映します。
+
+#### M0.1 検証基盤整備 ✅ 完了
+
+**目的**: 画面経由で OCR 検証を進める手順と、結果を蓄積する場所を整える。
+
+**成果物**:
+- [docs/ocr-validation.md](./ocr-validation.md):検証手順と実験ログの蓄積先(生きたドキュメント)
+- `samples/` 規約([samples/README.md](../samples/README.md)):画像はコミットせず、
+  `README.md` のみ commit
+- [Measure.tsx](../apps/tablet/src/pages/Measure.tsx)(M4 で実装済)が検証 UI を兼ねる
+- [handler.ts](../amplify/functions/ocr-handler/handler.ts) のモデル ID を
+  `anthropic.claude-sonnet-4-5-20250929-v1:0` に修正済(要 sandbox 再デプロイ)
+
+#### M0.2 初期検証(3〜4 枚で実施) 🔜 次
+
+**目的**: 本番経路の疎通確認と、プロンプトの初期感度評価を行う。
 
 **手順**:
-1. 実機の表示部画像を **10〜20枚** 収集
+1. `npx ampx sandbox` を稼働させ、最新のモデル ID 修正を Lambda に反映
+2. Cognito テストユーザーを 1 人作成(未作成の場合)
+3. `npm run dev:tablet` でアプリ起動 → ログイン
+4. `/containers` で検証用の仮容器を 1 件登録
+5. `/measure` で `samples/initials/*.JPG` を 1 枚ずつ投入
+6. 結果パネルの値(OCR 値・信頼度・stable・warnings・rawText)を
+   [ocr-validation.md §4](./ocr-validation.md#4-実験ログ) のテンプレートに沿って記録
+7. 正解(ファイル名に埋め込み済み)と比較し、完全一致/±目量以内で採点
+8. プロンプト調整が必要なら [handler.ts](../amplify/functions/ocr-handler/handler.ts) の
+   `SYSTEM_PROMPT` を編集 → 保存 → sandbox が自動反映 → 再検証
+
+**注意**: 3〜4 枚では正解率の統計判定(95% 基準)は **不可能**。
+経路疎通と粗い傾向把握のみが目的。
+
+**完了条件**: 画面経由で 1 周の検証が回り、Exp#1 が実験ログに記録される。
+
+#### M0.3 本検証(10〜20 枚、画像収集後) ⬜
+
+**目的**: 実装計画書本来の判定基準(正解率 95%/80%)で本格判定する。
+
+**手順**:
+1. 実機の表示部画像を **10〜20枚** 収集(現場ヒアリング/撮影依頼)
    - 距離: 近(30cm)/ 中(60cm)/ 遠(1m)
    - 角度: 正面 / 斜め30度
    - 照明: 蛍光灯下 / 反射あり / 暗め
    - 表示値: 0.00 / 小さい値 / 大きい値 / 安定マークOFF も含む
-2. Bedrock Console(または簡易スクリプト)で `claude-sonnet-4-6` に画像を投入
-3. 採点表を作成
-   - 正解率(完全一致 / ±目量以内)
-   - 信頼度の付き方
-   - 失敗パターン
-4. **判定基準**:
-   - ✅ 正解率 95% 以上 → そのまま M1 へ
+2. `samples/batch-YYYYMMDD/` に配置
+3. [ocr-validation.md §3](./ocr-validation.md#3-サンプル台帳) のサンプル台帳に
+   ファイル名と正解値を記録
+4. M0.2 で決まった確定版プロンプトで `/measure` から 1 枚ずつ投入
+5. **判定基準**:
+   - ✅ 正解率 95% 以上 → そのまま後続に進む
    - ⚠️ 80–95% → 前処理(コントラスト強調・トリミングUI)を追加して再評価
    - ❌ 80% 未満 → 方針見直し(専用OCR、計量機シリアル直結、ハイブリッド等)
+6. 結論を [ocr-validation.md §5](./ocr-validation.md#5-現時点の結論) に記載
 
-**完了条件**: 検証レポートを `docs/ocr-validation.md` に追加し、M1 着手の可否を判断
+**完了条件**: 正解率判定が下り、必要ならプロンプトの最終版を
+[handler.ts](../amplify/functions/ocr-handler/handler.ts) に反映して sandbox 再デプロイ。
 
 ---
 
