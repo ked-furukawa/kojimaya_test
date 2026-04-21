@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CameraIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { uploadData } from 'aws-amplify/storage';
 import { getCurrentUser } from 'aws-amplify/auth';
 import type { Schema } from '../../../../amplify/data/resource';
@@ -335,7 +336,10 @@ export function Measure() {
               className="hidden"
               onChange={handleFileChange}
             />
-            <span className="text-base">📷 タップして撮影 / 画像を選択</span>
+            <span className="inline-flex items-center gap-2 text-base">
+              <CameraIcon className="h-6 w-6" />
+              タップして撮影 / 画像を選択
+            </span>
           </label>
         ) : (
           'previewUrl' in phase && (
@@ -375,7 +379,7 @@ export function Measure() {
                     className="flex-1 rounded-lg bg-emerald-600 px-4 py-2 text-base font-bold text-white shadow hover:bg-emerald-700 disabled:opacity-50"
                     onClick={handleRunOcr}
                   >
-                    OCR 実行
+                    検出実行
                   </button>
                 )}
               </div>
@@ -387,7 +391,7 @@ export function Measure() {
       {(phase.kind === 'uploading' || phase.kind === 'ocr') && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center text-emerald-800">
           <div className="mb-2 text-base font-semibold">
-            {phase.kind === 'uploading' ? '画像をアップロード中…' : 'OCR を実行中…'}
+            {phase.kind === 'uploading' ? '画像をアップロード中…' : '検出実行中…'}
           </div>
           <div className="mx-auto h-2 w-32 overflow-hidden rounded-full bg-emerald-200">
             <div className="h-full w-1/2 animate-pulse bg-emerald-500" />
@@ -410,7 +414,7 @@ export function Measure() {
             </div>
             {ocr.warnings && ocr.warnings.length > 0 && (
               <div className="mt-3 text-xs text-amber-300">
-                ⚠ {ocr.warnings.filter(Boolean).join(' / ')}
+                <ExclamationTriangleIcon className="inline h-4 w-4" /> {ocr.warnings.filter(Boolean).join(' / ')}
               </div>
             )}
             {ocr.rawText && (
@@ -510,7 +514,10 @@ export function Measure() {
 
       {phase.kind === 'saved' && (
         <section className="rounded-2xl border border-emerald-300 bg-emerald-50 p-6 text-emerald-800">
-          ✅ 保存しました。続けて計量する場合は上から撮影してください。
+          <span className="inline-flex items-center gap-2">
+            <CheckCircleIcon className="h-6 w-6" />
+            保存しました。続けて計量する場合は上から撮影してください。
+          </span>
         </section>
       )}
     </div>
