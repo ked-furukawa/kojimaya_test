@@ -5,10 +5,15 @@ export default {
     extend: {
       fontFamily: {
         sans: [
-          'system-ui',
-          '-apple-system',
+          '"Noto Sans JP"',
           '"Hiragino Sans"',
-          '"Yu Gothic UI"',
+          '"Hiragino Kaku Gothic ProN"',
+          '"Yu Gothic Medium"',
+          'Meiryo',
+          '"Segoe UI"',
+          'Roboto',
+          '"Helvetica Neue"',
+          'Arial',
           'sans-serif',
         ],
       },
