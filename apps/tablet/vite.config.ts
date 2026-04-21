@@ -14,10 +14,10 @@ export default defineConfig({
         short_name: '計量チェック',
         description: 'タブレットで計量機の表示を撮影し、OCRで数値を記録する業務アプリ',
         lang: 'ja',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any',
         start_url: '/',
         scope: '/',
         icons: [

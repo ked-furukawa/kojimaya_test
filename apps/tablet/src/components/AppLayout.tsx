@@ -7,10 +7,10 @@ import {
   ClockIcon,
   CubeIcon,
   Bars3Icon,
-  BuildingStorefrontIcon,
   ChevronLeftIcon,
   ArrowRightStartOnRectangleIcon,
 } from '@heroicons/react/24/outline';
+import logoUrl from '@/assets/logo.png';
 
 /* ------------------------------------------------------------------ */
 /*  ナビゲーション定義                                                 */
@@ -25,7 +25,7 @@ const navItems: NavItem[] = [
   { to: '/', label: 'ホーム', icon: HomeIcon },
   { to: '/measure', label: '計量する', icon: ScaleIcon },
   { to: '/history', label: '履歴', icon: ClockIcon },
-  { to: '/containers', label: '容器マスタ', icon: CubeIcon },
+  { to: '/containers', label: '容器登録', icon: CubeIcon },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -48,22 +48,25 @@ export function AppLayout({ user, onSignOut, children }: Props) {
     <div className="flex h-screen overflow-hidden">
       {/* ---------- サイドバー ---------- */}
       <aside
-        className={`flex flex-col bg-slate-900 text-white transition-[width] duration-200 ${
+        className={`flex flex-col border-r border-slate-200 bg-white text-slate-700 transition-[width] duration-200 ${
           expanded ? 'w-56' : 'w-16'
         }`}
       >
         {/* ヘッダー（社名 + トグルボタン） */}
         <div className="flex h-14 items-center">
           {expanded && (
-            <div className="flex flex-1 items-center gap-2 px-4">
-              <BuildingStorefrontIcon className="h-6 w-6 flex-shrink-0" />
-              <span className="truncate text-lg font-bold">小嶋屋</span>
+            <div className="flex flex-1 items-center px-2">
+              <img
+                src={logoUrl}
+                alt="小嶋屋"
+                className="h-10 w-auto max-w-full object-contain"
+              />
             </div>
           )}
           <button
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
-            className={`flex h-14 items-center justify-center hover:bg-white/10 ${
+            className={`flex h-14 items-center justify-center hover:bg-slate-100 ${
               expanded ? 'w-14' : 'w-full'
             }`}
             aria-label={expanded ? 'メニューを閉じる' : 'メニューを開く'}
@@ -88,8 +91,8 @@ export function AppLayout({ user, onSignOut, children }: Props) {
                 title={item.label}
                 className={`flex items-center gap-3 rounded-lg px-2 py-3 transition-colors ${
                   active
-                    ? 'bg-white/20 font-semibold'
-                    : 'hover:bg-white/10'
+                    ? 'bg-slate-900 font-semibold text-white'
+                    : 'hover:bg-slate-100'
                 }`}
               >
                 <Icon className="h-6 w-6 flex-shrink-0" />
@@ -102,9 +105,9 @@ export function AppLayout({ user, onSignOut, children }: Props) {
         </nav>
 
         {/* ログアウト (サイドバー下部) */}
-        <div className="border-t border-white/20 px-2 py-3">
+        <div className="border-t border-slate-200 px-2 py-3">
           {expanded && (
-            <p className="mb-2 truncate px-2 text-xs opacity-60">
+            <p className="mb-2 truncate px-2 text-xs text-slate-500">
               {user?.signInDetails?.loginId ?? ''}
             </p>
           )}
@@ -112,7 +115,7 @@ export function AppLayout({ user, onSignOut, children }: Props) {
             type="button"
             onClick={onSignOut}
             title="ログアウト"
-            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 hover:bg-white/10"
+            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 hover:bg-slate-100"
           >
             <ArrowRightStartOnRectangleIcon className="h-6 w-6 flex-shrink-0" />
             {expanded && <span className="text-sm">ログアウト</span>}
