@@ -22,7 +22,7 @@ const menu: MenuItem[] = [
   },
   {
     to: '/containers',
-    title: '容器マスタ',
+    title: '容器登録',
     description: '風袋容器の登録・更新',
     accent: 'bg-amber-600 hover:bg-amber-700',
   },
