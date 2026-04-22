@@ -1,6 +1,6 @@
 # UI/UX ガイドライン
 
-最終更新: 2026-04-17
+最終更新: 2026-04-21
 対象アプリ: `apps/tablet`（そば粉計量チェック タブレットPWA）
 関連: [requirements.md](./requirements.md) / [design.md](./design.md) / [implementation-plan.md](./implementation-plan.md)
 
@@ -44,6 +44,8 @@
 - **用途**: 数値入力（NumberField）など、ブラウザ標準では不十分なフォームコントロールに限定して使用
 - **スタイリング**: Base UI はヘッドレス（スタイルなし）のため、すべて Tailwind クラスで装飾する
 - **カスタムコンポーネント**: `src/components/ui/` 配下に Base UI をラップした共通コンポーネントを作成し、各ページから利用する
+- **OS キーボード抑止方針**: タブレット運用では OS のソフトウェアキーボードは原則使用しない。数値入力は独自テンキー（`NumberPad`）を内蔵した `NumberField`（[`src/components/ui/NumberField.tsx`](../apps/tablet/src/components/ui/NumberField.tsx)）経由で受ける。実装上は `<NumberField.Input>` に `readOnly tabIndex={-1}` と CSS `pointer-events-none` を付与し、中央の数値部を `<button type="button">` でラップしてタップで `NumberPad` を開く
+- **禁止事項**: タブレット画面で素の `<input type="number">` を直接配置しない（手袋・粉塵環境で誤タップと視認性低下を招くため）
 
 ---
 
@@ -204,12 +206,15 @@ bg-white rounded-xl shadow-sm border border-slate-200 p-6
 
 ### 7.3 入力フォーム
 
-- テキスト/数値入力: `h-12 rounded-lg border border-slate-300 px-4`
-- **数値入力（Base UI NumberField）**: 計量値の手動補正、風袋重量入力に使用
-  - ステッパー（+/-ボタン）付き
-  - 小数点対応（`step={0.01}`）
-  - 最小値 `0`
-- ラベル: 入力フィールドの上に配置、`text-sm font-medium text-slate-700`
+- テキスト入力: `h-12 rounded-lg border border-slate-300 px-4`
+- **数値入力は必ず [`NumberField`](../apps/tablet/src/components/ui/NumberField.tsx) を使用する**（素の `<input type="number">` は使わない）
+  - 適用先: **使用個数 / 手動補正値 / 指示重量 / 加水率 / 風袋重量** など計量周辺の全数値入力
+  - 構造: 左右に ±ステッパー（最小 `h-12 w-12`）＋ 中央の数値表示部
+  - **中央の数値部タップで独自テンキー（`NumberPad`）を開く**（§7.8）
+  - 整数入力: `allowDecimal={false}`、`.` ボタンを非表示
+  - 小数入力: `step` を `0.01`（kg 補正・風袋）/ `0.1`（加水率）などから選び、`maxFractionDigits` で桁数を制限
+  - null 許容フィールド: `allowClear` を指定し、プレースホルダで「任意」「未入力」などを示す
+- ラベル: `NumberField` の props `label` で指定（内部で入力フィールド上に `text-sm font-semibold text-slate-700` で配置）
 
 ### 7.4 バッジ・ステータス表示
 
@@ -239,6 +244,29 @@ bg-white rounded-xl shadow-sm border border-slate-200 p-6
 - スケルトン: `bg-slate-200 animate-pulse rounded`
 - OCR処理中: スピナー + 「読み取り中...」テキスト
 
+### 7.8 NumberPad（入力モーダル）
+
+`NumberField` の数値部タップで開く独自テンキーモーダル。実装は [`src/components/ui/NumberPad.tsx`](../apps/tablet/src/components/ui/NumberPad.tsx)。
+
+- **基盤**: Base UI `Dialog`（`Root / Portal / Backdrop / Popup / Title / Close`）
+- **レイアウト**:
+  - Popup: `w-[min(90vw,420px)] p-4 rounded-2xl bg-white shadow-xl`
+  - 上部: 大数値プレビュー（`text-5xl tabular-nums font-bold`、右端に単位）
+  - 下部: 3×4 数字グリッド + 右縦列（`⌫ / クリア / 確定`）
+- **ボタン仕様**:
+  - 最小 `h-16`（64px 以上、§3 の 48×48 要件を超える）
+  - 数字: `bg-white border-slate-300 text-3xl` + hover/active 状態
+  - 確定: `bg-emerald-600 text-white`（§7.1 成功ボタン）
+  - ⌫ / クリア: `bg-slate-100 text-slate-700`
+  - `.` ボタンは `allowDecimal=true` の時のみ活性、既に小数点が入っていれば無効化
+- **挙動**:
+  - 開いた瞬間に現在値で初期化
+  - バックドロップ / Escape / 閉じるボタン: 値を破棄してクローズ
+  - 確定: `parseFloat` → min/max で clamp → `onConfirm(number | null)`
+  - 空で確定（`allowClear=true` の場合）: `null` を返す
+- **呼び出し側の責務**: `NumberField` に一任。直接呼び出す場面は原則ないが、特殊な用途で単体利用する場合も props の型は同じ
+- **禁止事項**: このモーダル内で `<button type="submit">` を使わない（親フォームが意図せず送信される）
+
 ---
 
 ## 8. 画面別ガイドライン
@@ -258,8 +286,8 @@ bg-white rounded-xl shadow-sm border border-slate-200 p-6
 3. **OCR結果パネル**:
    - 読取値: `text-5xl font-bold tabular-nums` で最大表示
    - 信頼度バッジ + 安定マーク表示
-   - 手動補正入力（Base UI NumberField）
-4. **計算結果**: 正味重量 = 計量値 − 風袋重量
+   - 手動補正入力 / 指示重量 / 加水率（いずれも `NumberField` を使用、§7.3）
+4. **計算結果**: 正味重量 = 計量値 − (風袋重量 × 使用個数)
 5. **アクションボタン**: 「保存」（プライマリ）/「撮り直し」（セカンダリ）
 
 ### 8.3 容器マスタ画面 (`/containers`)
@@ -317,6 +345,7 @@ bg-white rounded-xl shadow-sm border border-slate-200 p-6
 | フォーカス表示 | `focus:ring-2` でキーボード操作時も視認可能 |
 | 色に頼らない | OK/NGは色+アイコン+テキストで伝達 |
 | aria ラベル | アイコンのみのボタンには `aria-label` を必須とする |
+| 数値入力 | OS キーボードを起動せず独自テンキー（`NumberPad`）を使用（§2.2 / §7.8） |
 
 ---
 

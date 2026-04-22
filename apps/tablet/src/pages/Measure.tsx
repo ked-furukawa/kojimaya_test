@@ -4,6 +4,8 @@ import { uploadData } from 'aws-amplify/storage';
 import { getCurrentUser } from 'aws-amplify/auth';
 import type { Schema } from '../../../../amplify/data/resource';
 import { getDataClient, getStorageBucketName } from '../lib/amplify';
+import { NumberField } from '../components/ui/NumberField';
+import { Select } from '../components/ui/Select';
 
 type Container = Schema['Container']['type'];
 type OcrResult = Schema['OcrResult']['type'];
@@ -71,8 +73,10 @@ export function Measure() {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [containers, setContainers] = useState<Container[]>([]);
   const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
-  const [manualValue, setManualValue] = useState<string>('');
-  const [targetValue, setTargetValue] = useState<string>('');
+  const [tareCount, setTareCount] = useState<number>(1);
+  const [hydrationRate, setHydrationRate] = useState<number | null>(null);
+  const [manualValue, setManualValue] = useState<number | null>(null);
+  const [targetValue, setTargetValue] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [preprocessedUrl, setPreprocessedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -110,27 +114,16 @@ export function Measure() {
 
   const ocr = phase.kind === 'reviewing' || phase.kind === 'saving' ? phase.ocr : null;
 
-  const effectiveGrossKg = useMemo(() => {
-    const trimmed = manualValue.trim();
-    if (trimmed !== '') {
-      const n = Number(trimmed);
-      return Number.isFinite(n) ? n : null;
-    }
-    return ocr?.value ?? null;
-  }, [manualValue, ocr]);
+  const effectiveGrossKg = manualValue ?? ocr?.value ?? null;
 
   const tareKg = selectedContainer?.tareWeightKg ?? null;
+  const totalTareKg = tareKg != null ? Math.round(tareKg * tareCount * 1000) / 1000 : null;
   const netKg =
-    effectiveGrossKg != null && tareKg != null
-      ? Math.round((effectiveGrossKg - tareKg) * 1000) / 1000
+    effectiveGrossKg != null && totalTareKg != null
+      ? Math.round((effectiveGrossKg - totalTareKg) * 1000) / 1000
       : null;
 
-  const targetKg = useMemo(() => {
-    const trimmed = targetValue.trim();
-    if (trimmed === '') return null;
-    const n = Number(trimmed);
-    return Number.isFinite(n) ? n : null;
-  }, [targetValue]);
+  const targetKg = targetValue;
 
   const judgment: 'OK' | 'OVER' | 'UNDER' | 'UNJUDGED' = useMemo(() => {
     if (netKg == null || targetKg == null) return 'UNJUDGED';
@@ -145,7 +138,7 @@ export function Measure() {
     if (!file) return;
     const previewUrl = URL.createObjectURL(file);
     setPhase({ kind: 'previewed', file, previewUrl });
-    setManualValue('');
+    setManualValue(null);
     setError(null);
   }
 
@@ -158,7 +151,7 @@ export function Measure() {
       setPreprocessedUrl(null);
     }
     setPhase({ kind: 'idle' });
-    setManualValue('');
+    setManualValue(null);
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
@@ -260,16 +253,17 @@ export function Measure() {
       } catch {
         // ignore
       }
-      const manualNum = manualValue.trim() === '' ? null : Number(manualValue);
       const { errors } = await client.models.Measurement.create({
         imageS3Key: s3Key,
         ocrValueKg: currentOcr.value ?? null,
         ocrConfidence: currentOcr.confidence ?? null,
         ocrStable: currentOcr.stable ?? null,
         ocrRawText: currentOcr.rawText ?? null,
-        manualValueKg: manualNum,
+        manualValueKg: manualValue,
         containerId: selectedContainer?.id ?? null,
         containerTareSnapshot: selectedContainer?.tareWeightKg ?? null,
+        tareContainerCount: tareCount,
+        hydrationRatePercent: hydrationRate,
         netWeightKg: netKg,
         targetWeightKg: targetKg,
         judgment,
@@ -281,8 +275,10 @@ export function Measure() {
       }
       URL.revokeObjectURL(previewUrl);
       setPhase({ kind: 'saved', ocr: currentOcr });
-      setManualValue('');
-      setTargetValue('');
+      setManualValue(null);
+      setTargetValue(null);
+      setHydrationRate(null);
+      setTareCount(1);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (e) {
       setError(`保存に失敗しました: ${(e as Error).message}`);
@@ -306,21 +302,61 @@ export function Measure() {
         <h2 className="mb-3 text-lg font-semibold">1. 容器を選択</h2>
         {containers.length === 0 ? (
           <p className="text-sm text-slate-500">
-            登録済みの容器がありません。「容器マスタ」から追加してください。
+            登録済みの容器がありません。「容器登録」から追加してください。
           </p>
         ) : (
-          <select
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
-            value={selectedContainerId ?? ''}
-            onChange={(e) => setSelectedContainerId(e.target.value || null)}
-          >
-            {containers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}(風袋 {c.tareWeightKg.toFixed(2)} kg）
-                {c.isDefault ? ' ★既定' : ''}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-3">
+            <Select<string>
+              value={selectedContainerId}
+              onValueChange={setSelectedContainerId}
+              ariaLabel="使用する容器を選択"
+              options={containers.map((c) => ({
+                value: c.id,
+                textLabel: c.name,
+                label: (
+                  <span className="flex items-center gap-2">
+                    <span className="truncate">
+                      {c.name}
+                      <span className="text-slate-500">
+                        (風袋 {c.tareWeightKg.toFixed(2)} kg)
+                      </span>
+                    </span>
+                    {c.isDefault && (
+                      <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                        ★ 既定
+                      </span>
+                    )}
+                  </span>
+                ),
+              }))}
+            />
+            <div className="grid items-end gap-3 sm:grid-cols-[auto_1fr]">
+              <NumberField
+                label="使用個数"
+                unit="個"
+                value={tareCount}
+                onValueChange={(v) => setTareCount(v ?? 0)}
+                min={0}
+                max={30}
+                step={1}
+                allowDecimal={false}
+              />
+              <div className="text-sm text-slate-600">
+                {tareCount === 0 ? (
+                  <span className="text-amber-700">
+                    個数 0: 風袋を引かず、計量値をそのまま正味とします。
+                  </span>
+                ) : tareKg != null ? (
+                  <>
+                    風袋合計 ={' '}
+                    <span className="font-semibold text-slate-900">
+                      {tareKg.toFixed(2)} kg × {tareCount} = {totalTareKg?.toFixed(2)} kg
+                    </span>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </div>
         )}
       </section>
 
@@ -423,34 +459,42 @@ export function Measure() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-700">
-                手動補正値(kg)
-              </span>
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                placeholder="OCR値を上書きする場合のみ"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
-                value={manualValue}
-                onChange={(e) => setManualValue(e.target.value)}
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-700">
-                指示重量(kg・任意)
-              </span>
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                placeholder="目標値を入れると判定"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
-                value={targetValue}
-                onChange={(e) => setTargetValue(e.target.value)}
-              />
-            </label>
+            <NumberField
+              label="手動補正値"
+              unit="kg"
+              value={manualValue}
+              onValueChange={setManualValue}
+              min={0}
+              step={0.01}
+              maxFractionDigits={2}
+              allowClear
+              placeholder="未入力ならOCR値"
+            />
+            <NumberField
+              label="指示重量"
+              unit="kg"
+              value={targetValue}
+              onValueChange={setTargetValue}
+              min={0}
+              step={0.01}
+              maxFractionDigits={2}
+              allowClear
+              placeholder="未入力なら判定なし"
+            />
+            <NumberField
+              className="sm:col-span-2"
+              label="加水率"
+              unit="%"
+              value={hydrationRate}
+              onValueChange={setHydrationRate}
+              min={0}
+              max={100}
+              step={0.5}
+              smallStep={0.1}
+              maxFractionDigits={1}
+              allowClear
+              placeholder="任意"
+            />
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -458,14 +502,22 @@ export function Measure() {
               <dt className="text-slate-600">採用 総重量</dt>
               <dd className="text-right font-semibold">{formatKg(effectiveGrossKg)}</dd>
               <dt className="text-slate-600">
-                風袋(
-                {selectedContainer?.name ?? '未選択'})
+                風袋合計(
+                {selectedContainer?.name ?? '未選択'} × {tareCount})
               </dt>
-              <dd className="text-right font-semibold">{formatKg(tareKg)}</dd>
+              <dd className="text-right font-semibold">{formatKg(totalTareKg)}</dd>
               <dt className="border-t border-slate-300 pt-2 text-slate-700">正味重量</dt>
               <dd className="border-t border-slate-300 pt-2 text-right text-lg font-bold text-emerald-700">
                 {formatKg(netKg)}
               </dd>
+              {hydrationRate != null && (
+                <>
+                  <dt className="text-slate-600">加水率</dt>
+                  <dd className="text-right font-semibold">
+                    {hydrationRate.toFixed(1)} %
+                  </dd>
+                </>
+              )}
               {targetKg != null && (
                 <>
                   <dt className="text-slate-600">指示重量</dt>

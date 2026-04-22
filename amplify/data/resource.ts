@@ -23,6 +23,8 @@ const schema = a
         manualValueKg: a.float(),
         containerId: a.id(),
         containerTareSnapshot: a.float(),
+        tareContainerCount: a.integer(),
+        hydrationRatePercent: a.float(),
         netWeightKg: a.float(),
         targetWeightKg: a.float(),
         judgment: a.enum(['OK', 'OVER', 'UNDER', 'UNJUDGED']),

@@ -240,8 +240,32 @@ function DetailModal({
               <dt className="text-slate-500">容器</dt>
               <dd>{containerName || '—'}</dd>
 
-              <dt className="text-slate-500">風袋(当時)</dt>
+              <dt className="text-slate-500">風袋(1個あたり・当時)</dt>
               <dd>{formatKg(m.containerTareSnapshot)}</dd>
+
+              <dt className="text-slate-500">使用個数</dt>
+              <dd>
+                {m.tareContainerCount ?? 1} 個
+                {m.tareContainerCount === 0 ? '(風袋引きなし)' : ''}
+              </dd>
+
+              {m.containerTareSnapshot != null && (
+                <>
+                  <dt className="text-slate-500">風袋合計</dt>
+                  <dd>
+                    {formatKg(
+                      m.containerTareSnapshot * (m.tareContainerCount ?? 1),
+                    )}
+                  </dd>
+                </>
+              )}
+
+              <dt className="text-slate-500">加水率</dt>
+              <dd>
+                {m.hydrationRatePercent != null
+                  ? `${m.hydrationRatePercent.toFixed(1)} %`
+                  : '—'}
+              </dd>
 
               <dt className="border-t border-slate-200 pt-3 text-slate-700 font-semibold">
                 正味重量
@@ -309,26 +333,37 @@ function exportCsv(measurements: Measurement[], containerMap: Map<string, string
     '安定',
     '手動補正値(kg)',
     '容器名',
-    '風袋(kg)',
+    '風袋1個あたり(kg)',
+    '使用個数',
+    '風袋合計(kg)',
+    '加水率(%)',
     '正味重量(kg)',
     '指示重量(kg)',
     '判定',
     'メモ',
   ];
-  const rows = measurements.map((m) => [
-    m.measuredAt,
-    m.operator ?? '',
-    m.ocrValueKg?.toString() ?? '',
-    m.ocrConfidence != null ? (m.ocrConfidence * 100).toFixed(0) + '%' : '',
-    m.ocrStable == null ? '' : m.ocrStable ? '安定' : '不安定',
-    m.manualValueKg?.toString() ?? '',
-    containerMap.get(m.containerId ?? '') ?? '',
-    m.containerTareSnapshot?.toString() ?? '',
-    m.netWeightKg?.toString() ?? '',
-    m.targetWeightKg?.toString() ?? '',
-    m.judgment ?? '',
-    m.note ?? '',
-  ]);
+  const rows = measurements.map((m) => {
+    const count = m.tareContainerCount ?? 1;
+    const totalTare =
+      m.containerTareSnapshot != null ? m.containerTareSnapshot * count : null;
+    return [
+      m.measuredAt,
+      m.operator ?? '',
+      m.ocrValueKg?.toString() ?? '',
+      m.ocrConfidence != null ? (m.ocrConfidence * 100).toFixed(0) + '%' : '',
+      m.ocrStable == null ? '' : m.ocrStable ? '安定' : '不安定',
+      m.manualValueKg?.toString() ?? '',
+      containerMap.get(m.containerId ?? '') ?? '',
+      m.containerTareSnapshot?.toString() ?? '',
+      count.toString(),
+      totalTare != null ? totalTare.toString() : '',
+      m.hydrationRatePercent != null ? m.hydrationRatePercent.toFixed(1) : '',
+      m.netWeightKg?.toString() ?? '',
+      m.targetWeightKg?.toString() ?? '',
+      m.judgment ?? '',
+      m.note ?? '',
+    ];
+  });
   const bom = '\uFEFF';
   const csv =
     bom +

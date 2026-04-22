@@ -2,16 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { getCurrentUser } from 'aws-amplify/auth';
 import type { Schema } from '../../../../amplify/data/resource';
 import { getDataClient } from '../lib/amplify';
+import { NumberField } from '../components/ui/NumberField';
 
 type Container = Schema['Container']['type'];
 
 type FormState = {
   name: string;
-  tareWeightKg: string;
+  tareWeightKg: number | null;
   note: string;
 };
 
-const EMPTY_FORM: FormState = { name: '', tareWeightKg: '', note: '' };
+const EMPTY_FORM: FormState = { name: '', tareWeightKg: null, note: '' };
 
 async function writeAuditLog(params: {
   entityId: string;
@@ -89,7 +90,7 @@ export function Containers() {
     setEditingId(c.id);
     setForm({
       name: c.name,
-      tareWeightKg: c.tareWeightKg.toString(),
+      tareWeightKg: c.tareWeightKg,
       note: c.note ?? '',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -104,12 +105,12 @@ export function Containers() {
     e.preventDefault();
     setError(null);
     const name = form.name.trim();
-    const tare = Number(form.tareWeightKg);
+    const tare = form.tareWeightKg;
     if (!name) {
       setError('容器名を入力してください。');
       return;
     }
-    if (!Number.isFinite(tare) || tare < 0) {
+    if (tare == null || tare < 0) {
       setError('風袋重量は 0 以上の数値で入力してください。');
       return;
     }
@@ -242,20 +243,17 @@ export function Containers() {
               required
             />
           </label>
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-700">風袋重量(kg)</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.001"
-              min="0"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
-              value={form.tareWeightKg}
-              onChange={(e) => setForm({ ...form, tareWeightKg: e.target.value })}
-              placeholder="例: 0.850"
-              required
-            />
-          </label>
+          <NumberField
+            label="風袋重量"
+            unit="kg"
+            value={form.tareWeightKg}
+            onValueChange={(v) => setForm({ ...form, tareWeightKg: v })}
+            min={0}
+            step={0.01}
+            smallStep={0.001}
+            maxFractionDigits={3}
+            required
+          />
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">メモ(任意)</span>
             <input
